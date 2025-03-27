@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Sales Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <h2>Vehicle Sales Dashboard</h2>
+
+    <form id="salesForm">
+        <label for="month">Month:</label>
+        <input type="text" id="month" name="month" required>
+
+        <label for="year">Year:</label>
+        <input type="number" id="year" name="year" required>
+
+        <label for="newVehicleSales">New Vehicle Sales:</label>
+        <input type="number" id="newVehicleSales" name="newVehicleSales" required>
+
+        <label for="usedVehicleSales">Used Vehicle Sales:</label>
+        <input type="number" id="usedVehicleSales" name="usedVehicleSales" required>
+
+        <label for="inventoryLevels">Inventory Levels:</label>
+        <input type="number" id="inventoryLevels" name="inventoryLevels" required>
+
+        <label for="appointmentSet">Appointments Set:</label>
+        <input type="number" id="appointmentSet" name="appointmentSet" required>
+
+        <label for="appointmentClosed">Appointments Closed:</label>
+        <input type="number" id="appointmentClosed" name="appointmentClosed" required>
+
+        <button type="submit">Submit Data</button>
+    </form>
+
+    <hr>
+
+    
+    <button onclick="fetchData()">Load Data & Chart</button>
+
+    <hr>
+
+    <h3>Saved Sales Data</h3>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Month</th>
+                <th>Year</th>
+                <th>New Sales</th>
+                <th>Used Sales</th>
+                <th>Inventory Levels</th>
+                <th>Appointments Set</th>
+                <th>Appointments Closed</th>
+                <th>Close Rate (%)</th>
+            </tr>
+        </thead>
+        <tbody id="dataTable">
+        </tbody>
+    </table>
+
+    <hr>
+
+    
+    <canvas id="salesChart"></canvas>
+
+    <script>
+        let salesChart; 
+
+       
+        document.getElementById("salesForm").addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const formData = {
+                month: document.getElementById("month").value,
+                year: parseInt(document.getElementById("year").value),
+                newVehicleSales: parseInt(document.getElementById("newVehicleSales").value),
+                usedVehicleSales: parseInt(document.getElementById("usedVehicleSales").value),
+                inventoryLevels: parseInt(document.getElementById("inventoryLevels").value),
+                appointmentSet: parseInt(document.getElementById("appointmentSet").value),
+                appointmentClosed: parseInt(document.getElementById("appointmentClosed").value)
+            };
+
+            try {
+                const response = await fetch("http://localhost:5201/api/VehicleData", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.ok) {
+                    alert("Data saved successfully!");
+                    fetchData(); 
+                } else {
+                    alert("Failed to save data!");
+                }
+            } catch (error) {
+                console.error("Error saving data:", error);
+            }
+        });
+
+        
+        async function fetchData() {
+            try {
+                const response = await fetch("http://localhost:5201/api/VehicleData");
+                const data = await response.json();
+
+                // Populate Table
+                const tableBody = document.getElementById("dataTable");
+                tableBody.innerHTML = ""; // Clear existing data
+
+                data.forEach(item => {
+                    const row = `<tr>
+                                    <td>${item.month}</td>
+                                    <td>${item.year}</td>
+                                    <td>${item.newVehicleSales}</td>
+                                    <td>${item.usedVehicleSales}</td>
+                                    <td>${item.inventoryLevels}</td>
+                                    <td>${item.appointmentSet}</td>
+                                    <td>${item.appointmentClosed}</td>
+                                    <td>${item.appointmentCloseRate.toFixed(2)}%</td>
+                                </tr>`;
+                    tableBody.innerHTML += row;
+                });
+
+                
+                updateChart(data);
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+            }
+        }
+
+        
+        function updateChart(data) {
+            const labels = data.map(item => `${item.month} ${item.year}`); 
+            const newVehicleSales = data.map(item => item.newVehicleSales);
+            const usedVehicleSales = data.map(item => item.usedVehicleSales);
+            const inventoryLevels = data.map(item => item.inventoryLevels);
+            const appointmentCloseRate = data.map(item => item.appointmentCloseRate);
+
+            const ctx = document.getElementById("salesChart").getContext("2d");
+
+            if (salesChart) {
+                salesChart.destroy(); 
+            }
+
+            salesChart = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: "New Vehicle Sales",
+                            data: newVehicleSales,
+                            backgroundColor: "blue",
+                            yAxisID: 'y',
+                            order: 2
+                        },
+                        {
+                            label: "Used Vehicle Sales",
+                            data: usedVehicleSales,
+                            backgroundColor: "red",
+                            yAxisID: 'y',
+                            order: 2
+                        },
+                        {
+                            label: "Inventory Levels",
+                            data: inventoryLevels,
+                            backgroundColor: "green",
+                            yAxisID: 'y1',
+                            order: 2
+                        },
+                        {
+                            label: "Appointment Close Rate (%)",
+                            data: appointmentCloseRate,
+                            borderColor: "purple",
+                            backgroundColor: "transparent",
+                            type: "line",
+                            yAxisID: 'y2',
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: { display: true, text: "Month-Year" }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            position: 'left',
+                            title: { display: true, text: "Vehicle Sales" }
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            title: { display: true, text: "Inventory Levels" },
+                            grid: { drawOnChartArea: false }
+                        },
+                        y2: {
+                            beginAtZero: true,
+                            position: 'right',
+                            title: { display: true, text: "Appointment Close Rate (%)" },
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>
